@@ -123,6 +123,7 @@ Run tests with verbose output:
 python3 -m pytest -v --browser chromium tests
 ```
 update!
+Automated deployment test 
 
 ## Reading the docs
 
