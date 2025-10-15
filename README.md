@@ -122,6 +122,7 @@ Run tests with verbose output:
 ```bash
 python3 -m pytest -v --browser chromium tests
 ```
+update!
 
 ## Reading the docs
 
