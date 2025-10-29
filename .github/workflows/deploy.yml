@@ -1,0 +1,93 @@
+name: CD - Deploy Application
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python and run tests
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        python -m pytest tests/ -v
+
+    - name: Deploy to VM
+      uses: appleboy/ssh-action@v1
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        key: ${{ secrets.VM_SSH_KEY }}
+        script: |
+          echo "🚀 Начинаем развертывание Catty приложения..."
+
+          # Создаем директорию для приложения
+          APP_DIR="/home/yakova/deployed_app"
+          echo "📁 Создаем директорию для приложения..."
+          sudo mkdir -p $APP_DIR
+          sudo chown -R yakova:yakova $APP_DIR
+
+          # Копируем файлы приложения
+          echo "📥 Копируем файлы приложения..."
+          sudo rm -rf $APP_DIR/*
+          sudo cp -r ./* $APP_DIR/ 2>/dev/null || true
+          sudo chown -R yakova:yakova $APP_DIR
+
+          # Устанавливаем зависимости
+          echo "📦 Устанавливаем зависимости Python..."
+          cd $APP_DIR
+          pip3 install -r requirements.txt --break-system-packages
+
+          # Останавливаем предыдущую версию приложения
+          echo "🛑 Останавливаем предыдущую версию..."
+          sudo pkill -f "uvicorn" || true
+          sleep 2
+
+          echo "⚙️  Настраиваем systemd сервис..."
+          sudo tee /etc/systemd/system/catty-app.service > /dev/null <<'SERVICE_EOF'
+[Unit]
+Description=Catty Reminders App
+After=network.target
+
+[Service]
+Type=simple
+User=yakova
+WorkingDirectory=$APP_DIR
+ExecStart=/usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8181
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SERVICE_EOF
+
+          # Перезагружаем systemd и запускаем сервис
+          echo "🔄 Запускаем systemd сервис..."
+          sudo systemctl daemon-reload
+          sudo systemctl enable catty-app
+          sudo systemctl restart catty-app
+
+          # Проверяем статус
+          echo "🔍 Проверяем статус сервиса..."
+          if sudo systemctl is-active --quiet catty-app; then
+              echo "✅ Catty приложение успешно запущено на порту 8181!"
+              echo "🌐 Приложение доступно по адресу: http://app.yakovleva.course.prafdin.ru"
+          else
+              echo "❌ Ошибка при запуске сервиса"
+              sudo systemctl status catty-app --no-pager
+              exit 1
+          fi
+
+          # Дополнительная проверка - тестируем доступность приложения
+          echo "🔍 Проверяем доступность приложения..."
+          sleep 10
+          curl -f http://localhost:8181 || echo "⚠️  Приложение может быть в процессе запуска"
