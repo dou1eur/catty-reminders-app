@@ -16,10 +16,11 @@ jobs:
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
+          port: 2470
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/yakova/deployed_app
+            cd /home/yakova/catty-reminders-app
             git pull origin main
             pip3 install -r requirements.txt --break-system-packages
             sudo systemctl restart catty-app
