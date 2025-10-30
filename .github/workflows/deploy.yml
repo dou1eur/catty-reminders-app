@@ -9,18 +9,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Deploy to server
-      uses: appleboy/ssh-action@v1
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          cd /home/yakova/deployed_app
-          git pull origin main
-          pip3 install -r requirements.txt --break-system-packages
-          sudo systemctl restart catty-app
-          echo "Deployment completed!"
+      - name: Deploy app to remote server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/yakova/deployed_app
+            git pull origin main
+            pip3 install -r requirements.txt --break-system-packages
+            sudo systemctl restart catty-app
+            echo "Application deployed successfully!"
