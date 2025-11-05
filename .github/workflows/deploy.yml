@@ -23,35 +23,17 @@ jobs:
           script: |
             cd ~/catty-reminders-app
             
-            # Stop existing application
-            pkill -f "uvicorn app.main:app" || true
-            sleep 3
-            
             # Update code
             git pull origin github-actions
             
-            # Setup virtual environment
-            if [ ! -d "venv" ]; then
-              python3 -m venv venv
-            fi
-            
-            # Install dependencies
-            source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
+            # Restart application using systemd or pm2 would be better, 
+            # but for now just kill and restart
+            pkill -f "uvicorn app.main:app" || true
+            sleep 5
             
             # Start application
             nohup venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8181 > app.log 2>&1 &
             
-            # Wait for startup
+            # Wait and check
             sleep 10
-            
-            # Verify application is running
-            if pgrep -f "uvicorn app.main:app" > /dev/null; then
-              echo "Application deployed successfully"
-              curl -f http://localhost:8181/ || echo "Application starting"
-            else
-              echo "Application failed to start"
-              tail -20 app.log
-              exit 1
-            fi
+            curl -f http://localhost:8181/ && echo "Deployment successful"
