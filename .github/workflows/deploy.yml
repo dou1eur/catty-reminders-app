@@ -22,18 +22,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/catty-reminders-app
-            
-            # Update code
             git pull origin github-actions
-            
-            # Restart application using systemd or pm2 would be better, 
-            # but for now just kill and restart
-            pkill -f "uvicorn app.main:app" || true
-            sleep 5
-            
-            # Start application
-            nohup venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8181 > app.log 2>&1 &
-            
-            # Wait and check
-            sleep 10
-            curl -f http://localhost:8181/ && echo "Deployment successful"
+            source venv/bin/activate || python3 -m venv venv && source venv/bin/activate
+            pip install -r requirements.txt
+            sleep 2
+            nohup uvicorn app.main:app --host 0.0.0.0 --port 8181 --reload &
