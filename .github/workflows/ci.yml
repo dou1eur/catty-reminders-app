@@ -29,3 +29,11 @@ jobs:
       - name: Run unit tests
         run: |
           python -m pytest tests/test_unit.py -v
+
+      - name: Run API tests
+        run: |
+          python -m pytest tests/test_api.py -v
+
+      - name: Run integration tests
+        run: |
+          python -m pytest tests/test_integration.py -v
