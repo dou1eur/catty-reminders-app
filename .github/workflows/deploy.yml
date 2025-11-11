@@ -22,17 +22,38 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/catty-reminders-app
-            git pull origin github-actions
-            source venv/bin/activate || python3 -m venv venv && source venv/bin/activate
-            pip install -r requirements.txt
-
-            # Stop previous uvicorn process (simplified)
-            pkill -f "uvicorn app.main:app" || true
-            sleep 2
-
-            # Start new process
-            nohup uvicorn app.main:app --host 0.0.0.0 --port 8181 --reload &
-            sleep 5
             
-            # Verify application is running
-            curl -f http://localhost:8181/ && echo "Deployment successful"
+            # Stop any existing processes
+            echo "Stopping existing processes..."
+            pkill -f "uvicorn" || true
+            sleep 3
+            
+            # Update code
+            echo "Updating code..."
+            git pull origin github-actions
+            
+            # Create fresh virtual environment
+            echo "Creating fresh virtual environment..."
+            rm -rf venv
+            python3 -m venv venv
+            source venv/bin/activate
+            
+            # Install dependencies in clean environment
+            echo "Installing dependencies..."
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            
+            # Start application
+            echo "Starting application..."
+            nohup venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8181 > app.log 2>&1 &
+            
+            # Wait and verify
+            sleep 10
+            echo "Verifying deployment..."
+            if curl -f http://localhost:8181/; then
+              echo "Deployment successful"
+            else
+              echo "Deployment failed - checking logs..."
+              tail -20 app.log
+              exit 1
+            fi
