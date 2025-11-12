@@ -23,37 +23,21 @@ jobs:
           script: |
             cd ~/catty-reminders-app
             
-            # Stop any existing processes
-            echo "Stopping existing processes..."
-            pkill -f "uvicorn" || true
-            sleep 3
+            # Find and kill process using port 8181
+            echo "Finding process on port 8181..."
+            PID=$(lsof -ti:8181) || true
+            if [ ! -z "$PID" ]; then
+              echo "Stopping process $PID"
+              kill $PID || true
+              sleep 3
+            fi
             
-            # Update code
-            echo "Updating code..."
+            # Update and deploy
             git pull origin github-actions
-            
-            # Create fresh virtual environment
-            echo "Creating fresh virtual environment..."
             rm -rf venv
             python3 -m venv venv
             source venv/bin/activate
-            
-            # Install dependencies in clean environment
-            echo "Installing dependencies..."
-            pip install --upgrade pip
             pip install -r requirements.txt
-            
-            # Start application
-            echo "Starting application..."
             nohup venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8181 > app.log 2>&1 &
-            
-            # Wait and verify
             sleep 10
-            echo "Verifying deployment..."
-            if curl -f http://localhost:8181/; then
-              echo "Deployment successful"
-            else
-              echo "Deployment failed - checking logs..."
-              tail -20 app.log
-              exit 1
-            fi
+            curl -f http://localhost:8181/ && echo "Deployment successful"
