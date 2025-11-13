@@ -21,23 +21,31 @@ jobs:
           username: yakova
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "Logging in to GHCR with repository token..."
+            echo "=== DIAGNOSTICS ==="
+            echo "Containers:"
+            docker ps -a
+            echo "Processes on port 8181:"
+            ss -tlnp | grep :8181 || true
+            netstat -tlnp | grep :8181 || true
+            echo "Running processes:"
+            ps aux | grep -E "(uvicorn|python.*8181)" | grep -v grep || true
+            
+            echo "=== DEPLOYMENT ==="
+            echo "Logging in to GHCR..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u dou1eur --password-stdin
             
-            echo "Pulling image from registry"
+            echo "Pulling image"
             docker pull ghcr.io/dou1eur/catty-reminders-app:latest
             
-            echo "Stopping old container"
-            docker stop catty-reminders || true
-            docker rm catty-reminders || true
+            echo "Stopping all related containers"
+            docker stop catty-reminders app-container catty-app || true
+            docker rm catty-reminders app-container catty-app || true
             
-            echo "Finding process on port 8181..."
-            PID=$(lsof -ti:8181) || true
-            if [ ! -z "$PID" ]; then
-              echo "Stopping process $PID"
-              kill $PID || true
-              sleep 3
-            fi
+            echo "Killing processes on port 8181"
+            pkill -f "uvicorn" || true
+            pkill -f "python.*8181" || true
+            pkill -f "fastapi" || true
+            sleep 5
             
             echo "Starting new container"
             docker run -d \
@@ -47,10 +55,10 @@ jobs:
               -e PYTHONUNBUFFERED=1 \
               ghcr.io/dou1eur/catty-reminders-app:latest
             
-            echo "Waiting for app to be healthy..."
+            echo "Waiting for app..."
             for i in $(seq 1 30); do
               if curl -fs http://localhost:8181/ > /dev/null 2>&1; then
-                echo "Deployment successful - app is running" 
+                echo "Deployment successful" 
                 exit 0
               fi
               sleep 2
