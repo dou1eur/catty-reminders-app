@@ -21,15 +21,6 @@ jobs:
           username: yakova
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "=== DIAGNOSTICS ==="
-            echo "Containers:"
-            docker ps -a
-            echo "Processes on port 8181:"
-            ss -tlnp | grep :8181 || true
-            netstat -tlnp | grep :8181 || true
-            echo "Running processes:"
-            ps aux | grep -E "(uvicorn|python.*8181)" | grep -v grep || true
-            
             echo "=== DEPLOYMENT ==="
             echo "Logging in to GHCR..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u dou1eur --password-stdin
@@ -37,14 +28,14 @@ jobs:
             echo "Pulling image"
             docker pull ghcr.io/dou1eur/catty-reminders-app:latest
             
-            echo "Stopping all related containers"
-            docker stop catty-reminders app-container catty-app || true
-            docker rm catty-reminders app-container catty-app || true
+            echo "Stopping ALL containers using port 8181"
+            # Останавливаем все контейнеры использующие порт 8181
+            docker ps --filter "publish=8181" --format "{{.ID}}" | xargs -r docker stop
+            docker ps -a --filter "publish=8181" --format "{{.ID}}" | xargs -r docker rm
             
-            echo "Killing processes on port 8181"
-            pkill -f "uvicorn" || true
-            pkill -f "python.*8181" || true
-            pkill -f "fastapi" || true
+            echo "Alternative: stop all running containers"
+            docker ps -q | xargs -r docker stop
+            
             sleep 5
             
             echo "Starting new container"
