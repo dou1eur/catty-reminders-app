@@ -22,14 +22,15 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "Logging in to GHCR..."
-            echo "${{secrets.CR_PAT}}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-            IMAGE="ghcr.io/${{ github.repository }}:latest"
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            IMAGE="ghcr.io/${{ github.repository_owner }}/catty-reminders:latest"
             
             echo "Pulling $IMAGE"
             docker pull "$IMAGE"
             
             echo "Stopping old container (if exists)"
-            docker rm -f catty-reminders || true
+            docker stop catty-reminders || true
+            docker rm catty-reminders || true
             
             echo "Checking port 8181 usage"
             if ss -tlnp | grep :8181; then
@@ -54,16 +55,13 @@ jobs:
             
             echo "Waiting for app to be healthy..."
             for i in $(seq 1 30); do
-              if curl -fsS http://localhost:8181/ > /dev/null 2>&1; then
-                echo "App is up" 
+              if curl -fs http://localhost:8181/ > /dev/null 2>&1; then
+                echo "App is healthy and running" 
                 exit 0
               fi
               sleep 2
             done
 
-            echo "App did not become healthy in time" 
-            docker logs --tail 200 catty-reminders || true
-            
-            echo "Deployment finished (possibly with warnings)"
-            sleep 2
-            exit 0
+            echo "App health check failed" 
+            docker logs --tail 50 catty-reminders || true
+            exit 1
