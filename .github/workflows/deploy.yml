@@ -22,8 +22,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "Logging in to GHCR..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-            IMAGE="ghcr.io/${{ github.repository_owner }}/catty-reminders:latest"
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u dou1eur --password-stdin
+            IMAGE="ghcr.io/dou1eur/catty-reminders:latest"
             
             echo "Pulling $IMAGE"
             docker pull "$IMAGE"
@@ -32,18 +32,9 @@ jobs:
             docker stop catty-reminders || true
             docker rm catty-reminders || true
             
-            echo "Checking port 8181 usage"
-            if ss -tlnp | grep :8181; then
-              echo "Port 8181 is in use, finding process..."
-              PID=$(ss -tlnp | grep :8181 | awk '{print $6}' | cut -d',' -f2 | cut -d'=' -f2)
-              if [ ! -z "$PID" ]; then
-                echo "Killing process $PID"
-                kill $PID || true
-                sleep 2
-              fi
-            else
-              echo "Port 8181 is free"
-            fi
+            echo "Freeing port 8181"
+            sudo pkill -f ":8181" || true
+            sleep 5
             
             echo "Starting new container"
             docker run -d \
