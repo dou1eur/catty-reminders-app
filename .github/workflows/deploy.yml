@@ -21,20 +21,23 @@ jobs:
           username: yakova
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "Logging in to GHCR..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u dou1eur --password-stdin
-            IMAGE="ghcr.io/dou1eur/catty-reminders:latest"
+            echo "Logging in to GHCR with repository token..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            echo "Pulling $IMAGE"
-            docker pull "$IMAGE"
+            echo "Pulling image from registry"
+            docker pull ghcr.io/${{ github.repository_owner }}/catty-reminders-app:latest
             
-            echo "Stopping old container (if exists)"
+            echo "Stopping old container"
             docker stop catty-reminders || true
             docker rm catty-reminders || true
             
-            echo "Freeing port 8181"
-            sudo pkill -f ":8181" || true
+            echo "Freeing port 8181 without sudo"
+            pkill -f "uvicorn" || true
+            pkill -f "python.*8181" || true
             sleep 5
+            
+            echo "Checking port status"
+            ss -tlnp | grep :8181 && echo "Warning: Port may still be in use" || echo "Port is free"
             
             echo "Starting new container"
             docker run -d \
@@ -42,17 +45,17 @@ jobs:
               --restart unless-stopped \
               -p 8181:8181 \
               -e PYTHONUNBUFFERED=1 \
-              "$IMAGE"
+              ghcr.io/${{ github.repository_owner }}/catty-reminders-app:latest
             
             echo "Waiting for app to be healthy..."
             for i in $(seq 1 30); do
               if curl -fs http://localhost:8181/ > /dev/null 2>&1; then
-                echo "App is healthy and running" 
+                echo "Deployment successful - app is running" 
                 exit 0
               fi
               sleep 2
             done
 
-            echo "App health check failed" 
+            echo "Health check failed" 
             docker logs --tail 50 catty-reminders || true
             exit 1
