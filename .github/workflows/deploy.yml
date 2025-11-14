@@ -21,40 +21,36 @@ jobs:
           username: yakova
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "=== DEPLOYMENT ==="
+            echo "=== DEPLOYMENT DEBUG ==="
             echo "Logging in to GHCR..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u dou1eur --password-stdin
             
             echo "Pulling image"
             docker pull ghcr.io/dou1eur/catty-reminders-app:latest
             
-            echo "Stopping ALL containers using port 8181"
-            # Останавливаем все контейнеры использующие порт 8181
-            docker ps --filter "publish=8181" --format "{{.ID}}" | xargs -r docker stop
-            docker ps -a --filter "publish=8181" --format "{{.ID}}" | xargs -r docker rm
+            echo "Cleaning up old containers"
+            docker stop catty-reminders || true
+            docker rm catty-reminders || true
             
-            echo "Alternative: stop all running containers"
-            docker ps -q | xargs -r docker stop
+            echo "Testing the image"
+            docker run --rm -it \
+              --name test-container \
+              ghcr.io/dou1eur/catty-reminders-app:latest \
+              python -c "import app.main; print('Import successful')"
             
-            sleep 5
-            
-            echo "Starting new container"
-            docker run -d \
+            echo "Starting container in foreground to see logs"
+            timeout 30s docker run --rm \
               --name catty-reminders \
-              --restart unless-stopped \
               -p 8181:8181 \
               -e PYTHONUNBUFFERED=1 \
-              ghcr.io/dou1eur/catty-reminders-app:latest
+              ghcr.io/dou1eur/catty-reminders-app:latest || true
             
-            echo "Waiting for app..."
-            for i in $(seq 1 30); do
-              if curl -fs http://localhost:8181/ > /dev/null 2>&1; then
-                echo "Deployment successful" 
-                exit 0
-              fi
-              sleep 2
-            done
-
-            echo "Health check failed" 
-            docker logs --tail 50 catty-reminders || true
-            exit 1
+            echo "Checking what's in the image"
+            docker run --rm -it \
+              ghcr.io/dou1eur/catty-reminders-app:latest \
+              ls -la app/ || echo "No app directory"
+            
+            echo "Trying to start with shell to debug"
+            docker run --rm -it \
+              --entrypoint /bin/bash \
+              ghcr.io/dou1eur/catty-reminders-app:latest
