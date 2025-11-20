@@ -27,8 +27,13 @@ jobs:
             echo "Navigating to project directory"
             cd ~/multicontainers || cd /home/yakova/multicontainers
             
-            echo "Pulling latest changes"
-            git pull origin main
+            echo "Finding and stopping process on port 8181..."
+            PID=$(lsof -ti:8181) || true
+            if [ ! -z "$PID" ]; then
+              echo "Stopping process $PID"
+              kill $PID || true
+              sleep 3
+            fi
             
             echo "Building and deploying with Docker Compose"
             docker compose down || true
