@@ -27,11 +27,11 @@ jobs:
             echo "Navigating to project directory"
             cd ~/multicontainers || cd /home/yakova/multicontainers
             
-            echo "Finding and stopping process on port 8181..."
-            PID=$(lsof -ti:8181) || true
-            if [ ! -z "$PID" ]; then
-              echo "Stopping process $PID"
-              kill $PID || true
+            echo "Finding container using port 8181..."
+            CONTAINER_ID=$(docker ps -q --filter "publish=8181")
+            if [ ! -z "$CONTAINER_ID" ]; then
+              echo "Stopping container $CONTAINER_ID using port 8181"
+              docker stop $CONTAINER_ID || true
               sleep 3
             fi
             
