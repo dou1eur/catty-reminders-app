@@ -2,55 +2,60 @@ name: CD - Deploy with Docker Compose
 
 on:
   release:
-    types: 
-      - published
+    types: [published]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: github.event.release.target_commitish == 'multicontainers'
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy with Docker Compose to remote server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: course.prafdin.ru
-          port: 2470
-          username: yakova
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            echo "Logging in to GHCR with repository token..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u dou1eur --password-stdin
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/github_actions
+          chmod 600 ~/.ssh/github_actions
+
+      - name: Deploy with Docker Compose to VM
+        run: |
+          echo "Starting Docker Compose deployment..."
+          ssh -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=15 \
+              -i ~/.ssh/github_actions \
+              -p 2470 \
+              yakova@course.prafdin.ru "
+            echo 'Logging in to GHCR...'
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u dou1eur --password-stdin
             
-            echo "Navigating to project directory"
-            cd ~/multicontainers || cd /home/yakova/multicontainers
+            echo 'Navigating to project directory...'
+            cd ~/multicontainers
             
-            echo "Finding and stopping process on port 8181..."
-            PID=$(lsof -ti:8181) || true
-            if [ ! -z "$PID" ]; then
-              echo "Stopping process $PID"
-              kill $PID || true
-              sleep 3
-            fi
-            
-            echo "Building and deploying with Docker Compose"
-            docker compose down || true
+            echo 'Pulling latest images...'
             docker compose pull || true
+            
+            echo 'Stopping and removing old containers...'
+            docker compose down
+            
+            echo 'Starting new containers with Docker Compose...'
             docker compose up -d --build
             
-            echo "Waiting for services to be healthy..."
+            echo 'Waiting for services to start...'
             sleep 30
             
-            echo "Checking web service health"
-            if curl -fs http://localhost:8181/ > /dev/null 2>&1; then
-              echo "Deployment successful - app is running"
-              echo "Checking services status:"
+            echo 'Checking application health...'
+            if curl -fs http://localhost:8181/ > /dev/null; then
+              echo 'Deployment successful!'
+              echo 'Containers status:'
               docker compose ps
             else
-              echo "Health check failed"
-              echo "Service logs:"
+              echo 'Health check failed'
               docker compose logs --tail=50
               exit 1
             fi
+            
+            echo 'Cleaning up...'
+            docker image prune -f
+          "
