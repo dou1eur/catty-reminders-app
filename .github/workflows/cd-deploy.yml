@@ -1,0 +1,51 @@
+name: CD - Deploy with Docker Compose
+
+on:
+  release:
+    types: 
+      - published
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy with Docker Compose to remote server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: course.prafdin.ru
+          port: 2470
+          username: yakova
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "Logging in to GHCR with repository token..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u dou1eur --password-stdin
+            
+            echo "Navigating to project directory"
+            cd ~/multicontainers || cd /home/yakova/multicontainers
+            
+            echo "Pulling latest changes"
+            git pull origin main
+            
+            echo "Building and deploying with Docker Compose"
+            docker compose down || true
+            docker compose pull || true
+            docker compose up -d --build
+            
+            echo "Waiting for services to be healthy..."
+            sleep 30
+            
+            echo "Checking web service health"
+            if curl -fs http://localhost:8181/ > /dev/null 2>&1; then
+              echo "Deployment successful - app is running"
+              echo "Checking services status:"
+              docker compose ps
+            else
+              echo "Health check failed"
+              echo "Service logs:"
+              docker compose logs --tail=50
+              exit 1
+            fi
