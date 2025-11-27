@@ -22,6 +22,13 @@ jobs:
           script: |
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u dou1eur --password-stdin
             cd /home/yakova/catty-reminders-app
+            rm -f docker-compose.yaml
+            docker compose down
+            CONTAINER_ID=$(docker ps -q --filter "publish=8181")
+            if [ ! -z "$CONTAINER_ID" ]; then
+              docker stop $CONTAINER_ID
+              docker rm $CONTAINER_ID
+            fi
             docker compose pull
             docker compose up -d
             curl -f http://localhost:8181/ && echo "Deployment successful" || echo "Health check failed"
