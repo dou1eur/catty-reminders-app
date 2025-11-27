@@ -20,14 +20,9 @@ jobs:
           username: yakova
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "Login to GHCR"
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u dou1eur --password-stdin
-            
-            echo "Pull latest images"
-            docker compose -f ~/multicontainers/docker-compose.yml pull
-            
-            echo "Start services"
-            docker compose -f ~/multicontainers/docker-compose.yml up -d
-            
-            echo "Check health"
-            curl -f http://localhost:8181/ && echo "Deployment successful" || echo "Failed"
+            cd /home/yakova/catty-reminders-app
+            docker compose pull
+            docker compose up -d
+            curl -f http://localhost:8181/ && echo "Deployment successful" || echo "Health check failed"
+            docker compose ps
