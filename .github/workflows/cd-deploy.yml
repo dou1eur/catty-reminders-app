@@ -27,6 +27,9 @@ jobs:
             echo "Navigating to project directory"
             cd ~/multicontainers || cd /home/yakova/multicontainers
             
+            echo "Pulling latest code changes"
+            git pull origin multicontainers
+            
             echo "Finding container using port 8181..."
             CONTAINER_ID=$(docker ps -q --filter "publish=8181")
             if [ ! -z "$CONTAINER_ID" ]; then
@@ -35,10 +38,10 @@ jobs:
               sleep 3
             fi
             
-            echo "Building and deploying with Docker Compose"
+            echo "Building and deploying with Docker Compose (no cache)"
             docker compose down || true
-            docker compose pull || true
-            docker compose up -d --build
+            docker compose build --no-cache
+            docker compose up -d
             
             echo "Waiting for services to be healthy..."
             sleep 30
