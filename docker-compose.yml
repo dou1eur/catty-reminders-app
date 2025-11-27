@@ -1,0 +1,33 @@
+name: catty-reminders
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: catty-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: catty_reminders
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  app:
+    image: ghcr.io/dou1eur/catty-reminders-app:latest
+    container_name: catty-app
+    depends_on:
+      - db
+    restart: unless-stopped
+    ports:
+      - "8181:8181"
+    environment:
+      SECRET_KEY: "Cats are awesome!"
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: app_user
+      DB_PASSWORD: app_password
+      DB_NAME: catty_reminders
+
+volumes:
+  mysql_data:
